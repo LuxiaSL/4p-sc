@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4plebs Post Scraper</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --border: #0f3460;
+      --text: #e0e0e0;
+      --text-dim: #8888aa;
+      --accent: #e94560;
+      --accent-dim: #a83242;
+      --green: #4ecca3;
+      --yellow: #ffc107;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Courier New', monospace;
+      background: var(--bg);
+      color: var(--text);
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+      font-size: 1.4rem;
+    }
+    .subtitle {
+      color: var(--text-dim);
+      margin-bottom: 2rem;
+      font-size: 0.85rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 {
+      color: var(--accent);
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    .field {
+      margin-bottom: 1rem;
+    }
+    .field label {
+      display: block;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .field input, .field select {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .row {
+      display: flex;
+      gap: 1rem;
+    }
+    .row .field { flex: 1; }
+    button {
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 0.7rem 1.5rem;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      font-weight: bold;
+    }
+    .btn-primary:hover { background: var(--accent-dim); }
+    .btn-primary:disabled {
+      background: #444;
+      color: #777;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .btn-secondary:hover {
+      border-color: var(--text-dim);
+      color: var(--text);
+    }
+    .actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    #log {
+      background: #0a0a1a;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1rem;
+      height: 350px;
+      overflow-y: auto;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    #log .info { color: var(--text); }
+    #log .success { color: var(--green); }
+    #log .warn { color: var(--yellow); }
+    #log .error { color: var(--accent); }
+    #log .dim { color: var(--text-dim); }
+    #status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+    #status .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+    #status .dot.running { background: var(--yellow); animation: pulse 1s infinite; }
+    #status .dot.done { background: var(--green); }
+    #status .dot.error { background: var(--accent); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    #progress {
+      width: 100%;
+      height: 4px;
+      background: var(--bg);
+      border-radius: 2px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+    #progress .bar {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .warning-box {
+      background: rgba(255,193,7,0.1);
+      border: 1px solid rgba(255,193,7,0.3);
+      border-radius: 4px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.8rem;
+      color: var(--yellow);
+      line-height: 1.5;
+    }
+    .help-text {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 0.3rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>4plebs Post Scraper</h1>
+  <p class="subtitle">Browser-side archive scraper for your 4chan posts</p>
+
+  <div class="warning-box">
+    This page generates a bookmarklet/script to run on archive.4plebs.org.
+    The scraper runs from that tab using your existing Cloudflare session,
+    so no server or proxy is needed.
+  </div>
+
+  <div class="card">
+    <h2>Configuration</h2>
+    <div class="row">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="username" placeholder="Your poster name">
+      </div>
+      <div class="field">
+        <label>Tripcode</label>
+        <input type="text" id="tripcode" placeholder="!YourTripcode">
+        <div class="help-text">Include the ! prefix</div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Board(s)</label>
+        <input type="text" id="boards" value="x" placeholder="x, pol, tv, or x.pol.tv for multiple">
+        <div class="help-text">Single board or dot-separated. Leave blank for all.</div>
+      </div>
+      <div class="field">
+        <label>Delay (seconds)</label>
+        <input type="number" id="delay" value="13" min="5" max="60">
+        <div class="help-text">Min 5s. 4plebs allows ~5 req/min.</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Start Page</label>
+      <input type="number" id="startPage" value="1" min="1">
+      <div class="help-text">Set higher to resume from a specific page.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Output</h2>
+    <div id="status">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">Ready</span>
+    </div>
+    <div id="progress"><div class="bar" id="progressBar"></div></div>
+    <div id="log"></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-primary" id="btnGenerate">Generate Console Script</button>
+    <button class="btn-secondary" id="btnCopy">Copy to Clipboard</button>
+    <button class="btn-secondary" id="btnClearProgress">Clear Saved Progress</button>
+  </div>
+
+  <script>
+    const logEl = document.getElementById('log');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+
+    function log(msg, cls = 'info') {
+      const line = document.createElement('div');
+      line.className = cls;
+      line.textContent = msg;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setStatus(state, text) {
+      statusDot.className = `dot ${state}`;
+      statusText.textContent = text;
+    }
+
+    // Build the self-contained console script
+    function generateScript() {
+      const username = document.getElementById('username').value.trim();
+      const tripcode = document.getElementById('tripcode').value.trim();
+      const boards = document.getElementById('boards').value.trim();
+      const delay = Math.max(5, parseInt(document.getElementById('delay').value) || 13);
+      const startPage = Math.max(1, parseInt(document.getElementById('startPage').value) || 1);
+
+      if (!username && !tripcode) {
+        log('Error: provide at least a username or tripcode.', 'error');
+        return null;
+      }
+
+      // We inline the entire scraper.js logic into a single IIFE
+      // so it can be pasted directly into the console
+      const script = `(async () => {
+  /* 4plebs Post Scraper — generated ${new Date().toISOString()} */
+  const CONFIG = {
+    username: ${JSON.stringify(username)},
+    tripcode: ${JSON.stringify(tripcode)},
+    boards: ${JSON.stringify(boards)},
+    delayMs: ${delay * 1000},
+    maxRetries: 3,
+    retryBackoffMs: 5000,
+    startPage: ${startPage},
+    storageKey: '4plebs_scrape_progress',
+  };
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  async function fetchApiPage(page) {
+    const params = new URLSearchParams();
+    if (CONFIG.boards) params.set('boards', CONFIG.boards);
+    if (CONFIG.username) params.set('username', CONFIG.username);
+    if (CONFIG.tripcode) params.set('tripcode', CONFIG.tripcode);
+    params.set('page', page);
+    const resp = await fetch(\`/_/api/chan/search/?\${params}\`, {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (resp.status === 429) {
+      const wait = parseInt(resp.headers.get('Retry-After') || '30', 10);
+      console.warn(\`[429] Rate limited. Waiting \${wait}s...\`);
+      await sleep(wait * 1000);
+      return fetchApiPage(page);
+    }
+    if (!resp.ok) throw new Error(\`HTTP \${resp.status}\`);
+    const data = await resp.json();
+    if (data.error) return null;
+    const bucket = data['0'] || data[0];
+    if (!bucket?.posts?.length) return null;
+    return bucket.posts;
+  }
+
+  function parsePostFromDom(article) {
+    const getText = s => { const el = article.querySelector(s); return el ? el.textContent.trim() : null; };
+    const getAttr = (s, a) => { const el = article.querySelector(s); return el ? el.getAttribute(a) : null; };
+    let docId = null;
+    for (const c of article.classList) { if (c.startsWith('doc_id_')) { docId = c.replace('doc_id_', ''); break; } }
+    const postLink = article.querySelector('.post_controls a');
+    let num = null, threadNum = null, board = null;
+    if (postLink) {
+      const href = postLink.getAttribute('href') || '';
+      const m = href.match(/\\/(\\w+)\\/thread\\/(\\d+)\\/#(\\d+)/);
+      if (m) { board = m[1]; threadNum = m[2]; num = m[3]; }
+      else { const n = postLink.textContent.match(/No\\.(\\d+)/); if (n) num = n[1]; }
+    }
+    const timeEl = article.querySelector('.time_wrap time');
+    const commentEl = article.querySelector('.text');
+    return {
+      doc_id: docId, num, thread_num: threadNum, board,
+      op: article.classList.contains('post_is_op') ? '1' : '0',
+      timestamp: timeEl ? timeEl.getAttribute('datetime') : null,
+      fourchan_date: timeEl ? timeEl.textContent.trim() : null,
+      name: getText('.post_author'), trip: getText('.post_tripcode'),
+      title: getText('.post_title'), poster_hash: getText('.poster_hash'),
+      comment: commentEl ? commentEl.textContent.trim() : null,
+      comment_html: commentEl ? commentEl.innerHTML.trim() : null,
+      media_url: getAttr('.thread_image_link', 'href'),
+      thumb_url: getAttr('.post_image', 'src'),
+      media_filename: getText('.post_file_filename'),
+      _source: 'dom',
+    };
+  }
+
+  async function fetchDomPage(page) {
+    let path = '/_/search';
+    if (CONFIG.username) path += \`/username/\${encodeURIComponent(CONFIG.username)}\`;
+    if (CONFIG.tripcode) path += \`/tripcode/\${encodeURIComponent(CONFIG.tripcode)}\`;
+    path += \`/page/\${page}/\`;
+    if (CONFIG.boards && !CONFIG.boards.includes('.')) {
+      path = \`/\${CONFIG.boards}/search\`;
+      if (CONFIG.username) path += \`/username/\${encodeURIComponent(CONFIG.username)}\`;
+      if (CONFIG.tripcode) path += \`/tripcode/\${encodeURIComponent(CONFIG.tripcode)}\`;
+      path += \`/page/\${page}/\`;
+    }
+    const resp = await fetch(path, { credentials: 'same-origin' });
+    if (resp.status === 429) {
+      const wait = parseInt(resp.headers.get('Retry-After') || '30', 10);
+      console.warn(\`[429] Rate limited. Waiting \${wait}s...\`);
+      await sleep(wait * 1000);
+      return fetchDomPage(page);
+    }
+    if (!resp.ok) throw new Error(\`HTTP \${resp.status}\`);
+    const html = await resp.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const articles = doc.querySelectorAll('article.post');
+    if (!articles.length) return null;
+    return Array.from(articles).map(parsePostFromDom);
+  }
+
+  function saveProgress(posts, nextPage) {
+    try {
+      localStorage.setItem(CONFIG.storageKey, JSON.stringify({
+        posts, lastPage: nextPage, timestamp: Date.now(),
+        config: { username: CONFIG.username, tripcode: CONFIG.tripcode, boards: CONFIG.boards },
+      }));
+    } catch(e) { console.warn('localStorage save failed:', e.message); }
+  }
+  function loadProgress() {
+    try {
+      const raw = localStorage.getItem(CONFIG.storageKey);
+      if (!raw) return { posts: [], lastPage: 0 };
+      const s = JSON.parse(raw);
+      if (s.config?.username === CONFIG.username && s.config?.tripcode === CONFIG.tripcode && s.config?.boards === CONFIG.boards)
+        return { posts: s.posts || [], lastPage: s.lastPage || 0 };
+    } catch(e) {}
+    return { posts: [], lastPage: 0 };
+  }
+
+  async function scrape(useApi) {
+    const fetchPage = useApi ? fetchApiPage : fetchDomPage;
+    let { posts, lastPage } = loadProgress();
+    let page = lastPage > 0 ? lastPage : CONFIG.startPage;
+    if (posts.length > 0) console.log(\`Resuming from page \${page} with \${posts.length} posts saved.\`);
+    console.log(\`Method: \${useApi ? 'API' : 'DOM'} | Boards: \${CONFIG.boards || 'all'} | User: \${CONFIG.username}\${CONFIG.tripcode}\`);
+    let errors = 0;
+    while (true) {
+      let pagePosts = null, attempt = 0;
+      while (attempt <= CONFIG.maxRetries) {
+        try { pagePosts = await fetchPage(page); errors = 0; break; }
+        catch(e) {
+          attempt++; errors++;
+          console.error(\`Page \${page} attempt \${attempt}: \${e.message}\`);
+          if (errors >= 5) { console.error('Too many errors. Progress saved.'); saveProgress(posts, page); return posts; }
+          if (attempt <= CONFIG.maxRetries) { await sleep(CONFIG.retryBackoffMs * attempt); }
+        }
+      }
+      if (pagePosts === null) { console.log(\`End of results after page \${page - 1}.\`); break; }
+      posts.push(...pagePosts);
+      console.log(\`Page \${page}: \${pagePosts.length} posts (\${posts.length} total)\`);
+      saveProgress(posts, page + 1);
+      page++;
+      await sleep(CONFIG.delayMs);
+    }
+    localStorage.removeItem(CONFIG.storageKey);
+    return posts;
+  }
+
+  function normalize(posts) {
+    return posts.map(p => {
+      let text = p.comment_sanitized || p.comment || '';
+      if (text.includes('<')) { const t = document.createElement('div'); t.innerHTML = text; text = t.textContent || ''; }
+      text = text.replace(/\\s+/g, ' ').trim();
+      const board = p.board?.shortname || p.board || null;
+      const ts = p.timestamp ? parseInt(p.timestamp, 10) : null;
+      return {
+        post_id: p.num || null, thread_id: p.thread_num || null, board,
+        is_op: p.op === '1' || p.op === 1,
+        timestamp: ts, date_human: p.fourchan_date || null,
+        date_iso: ts ? new Date(ts * 1000).toISOString() : null,
+        name: p.name || null, tripcode: p.trip || null,
+        poster_id: p.poster_hash || null, country: p.poster_country || null,
+        subject: p.title || null, text,
+        text_html: p.comment_processed || p.comment_html || null,
+        has_media: !!(p.media || p.media_url),
+        media_filename: p.media?.media_filename || p.media_filename || null,
+        media_url: p.media?.media_link || p.media_url || null,
+        thumb_url: p.media?.thumb_link || p.thumb_url || null,
+        deleted: p.deleted === '1' || p.deleted === 1,
+      };
+    });
+  }
+
+  function groupByThread(posts) {
+    const threads = {};
+    for (const p of posts) {
+      const t = p.thread_id || 'unknown';
+      if (!threads[t]) threads[t] = { thread_id: t, board: p.board, posts: [] };
+      threads[t].posts.push(p);
+    }
+    for (const th of Object.values(threads)) th.posts.sort((a,b) => (a.timestamp||0) - (b.timestamp||0));
+    return Object.values(threads);
+  }
+
+  function dl(data, name) {
+    const json = JSON.stringify(data, null, 2);
+    const b = new Blob([json], { type: 'application/json' });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a'); a.href = u; a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(u);
+    console.log(\`Downloaded: \${name} (\${(json.length/1024).toFixed(1)} KB)\`);
+  }
+  function dlJsonl(posts, name) {
+    const lines = posts.map(p => JSON.stringify(p));
+    const b = new Blob([lines.join('\\n')], { type: 'application/jsonl' });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a'); a.href = u; a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(u);
+    console.log(\`Downloaded: \${name} (\${(lines.join('\\n').length/1024).toFixed(1)} KB)\`);
+  }
+
+  // --- Main ---
+  console.log('=== 4plebs Post Scraper ===');
+  let raw;
+  try { raw = await scrape(true); }
+  catch(e) { console.warn('API failed, trying DOM:', e.message); raw = await scrape(false); }
+  if (!raw.length) { console.log('No posts found.'); return; }
+  const norm = normalize(raw);
+  const threaded = groupByThread(norm);
+  const boards = [...new Set(norm.map(p => p.board).filter(Boolean))];
+  const ts = norm.map(p => p.timestamp).filter(Boolean).sort((a,b) => a-b);
+  console.log('\\n=== Summary ===');
+  console.log(\`Posts: \${norm.length} | Threads: \${threaded.length} | Boards: \${boards.join(', ')}\`);
+  if (ts.length) console.log(\`Range: \${new Date(ts[0]*1000).toISOString().split('T')[0]} to \${new Date(ts[ts.length-1]*1000).toISOString().split('T')[0]}\`);
+  const slug = (${JSON.stringify(username || tripcode || 'anon')}).replace(/[^a-zA-Z0-9]/g, '_');
+  dl(norm, \`4plebs_\${slug}_flat.json\`);
+  dl(threaded, \`4plebs_\${slug}_threaded.json\`);
+  dlJsonl(norm, \`4plebs_\${slug}_posts.jsonl\`);
+  console.log('\\nDone! 3 files downloaded.');
+})();`;
+
+      return script;
+    }
+
+    let lastScript = null;
+
+    document.getElementById('btnGenerate').addEventListener('click', () => {
+      logEl.innerHTML = '';
+      const script = generateScript();
+      if (!script) return;
+      lastScript = script;
+
+      setStatus('', 'Script generated');
+      log('Console script generated successfully.', 'success');
+      log('', 'dim');
+      log('Instructions:', 'info');
+      log('1. Open archive.4plebs.org in a browser tab', 'dim');
+      log('2. Open DevTools console (F12 or Cmd+Opt+J)', 'dim');
+      log('3. Paste the script and press Enter', 'dim');
+      log('4. Wait for it to paginate through all results', 'dim');
+      log('5. Files will auto-download when complete', 'dim');
+      log('', 'dim');
+      log('Click "Copy to Clipboard" to copy the script.', 'info');
+      log('', 'dim');
+      log('--- Script Preview (first 500 chars) ---', 'dim');
+      log(script.substring(0, 500) + '...', 'dim');
+    });
+
+    document.getElementById('btnCopy').addEventListener('click', async () => {
+      if (!lastScript) {
+        log('Generate a script first.', 'warn');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(lastScript);
+        log('Copied to clipboard!', 'success');
+      } catch (e) {
+        // Fallback for non-HTTPS contexts
+        const ta = document.createElement('textarea');
+        ta.value = lastScript;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        log('Copied to clipboard (fallback method).', 'success');
+      }
+    });
+
+    document.getElementById('btnClearProgress').addEventListener('click', () => {
+      const key = '4plebs_scrape_progress';
+      const had = localStorage.getItem(key);
+      localStorage.removeItem(key);
+      if (had) {
+        log('Cleared saved scrape progress from localStorage.', 'success');
+      } else {
+        log('No saved progress found.', 'dim');
+      }
+    });
+  </script>
+
+</body>
+</html>
